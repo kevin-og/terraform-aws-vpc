@@ -1,14 +1,15 @@
 provider "aws" {
-  region = "eu-west-1"
+  access_key = var.AWS_ACCESS_KEY
+  secret_key = var.AWS_SECRET_KEY
 }
 
 locals {
-  name   = "complete-example"
-  region = "eu-west-1"
+  name   = "complete-VPC"
+  region = "us-east-1"
   tags = {
-    Owner       = "user"
+    Owner       = "Kevin"
     Environment = "staging"
-    Name        = "complete"
+    Name        = "complete-VPC"
   }
 }
 
@@ -26,9 +27,25 @@ module "vpc" {
   private_subnets     = ["20.10.1.0/24", "20.10.2.0/24", "20.10.3.0/24"]
   public_subnets      = ["20.10.11.0/24", "20.10.12.0/24", "20.10.13.0/24"]
   database_subnets    = ["20.10.21.0/24", "20.10.22.0/24", "20.10.23.0/24"]
-  elasticache_subnets = ["20.10.31.0/24", "20.10.32.0/24", "20.10.33.0/24"]
-  redshift_subnets    = ["20.10.41.0/24", "20.10.42.0/24", "20.10.43.0/24"]
+  # elasticache_subnets = ["20.10.31.0/24", "20.10.32.0/24", "20.10.33.0/24"]
+  # redshift_subnets    = ["20.10.41.0/24", "20.10.42.0/24", "20.10.43.0/24"]
   intra_subnets       = ["20.10.51.0/24", "20.10.52.0/24", "20.10.53.0/24"]
+
+  public_subnet_tags = {
+    Name  = "PublicSubnet-${local.name}-${local.region}"
+  }
+
+  private_subnet_tags = {
+    Name =  "PrivateSubnet-${local.name}-${local.region}"
+  }
+
+  database_subnet_tags = {
+    Name =  "DatabaseSubnet-${local.name}-${local.region}"
+  }
+
+  intra_subnet_tags = {
+    Name =  "IntranetSubnet-${local.name}-${local.region}"
+  }
 
   create_database_subnet_group = false
 
@@ -48,7 +65,7 @@ module "vpc" {
   enable_classiclink_dns_support = true
 
   enable_nat_gateway = true
-  single_nat_gateway = true
+  single_nat_gateway = false
 
   customer_gateways = {
     IP1 = {
@@ -104,6 +121,7 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
+      tags            = { Name = "ssm-vpc-endpoint" }
     },
     ssmmessages = {
       service             = "ssmmessages"
@@ -114,11 +132,13 @@ module "vpc_endpoints" {
       service             = "lambda"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
+      tags            = { Name = "lambda-vpc-endpoint" }
     },
     ecs = {
       service             = "ecs"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
+      tags            = { Name = "ecs-vpc-endpoint" }
     },
     ecs_telemetry = {
       create              = false
@@ -131,6 +151,7 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
+      tags            = { Name = "ec2-vpc-endpoint" }
     },
     ec2messages = {
       service             = "ec2messages"
@@ -142,6 +163,7 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
+      tags            = { Name = "ecr-vpc-endpoint" }
     },
     ecr_dkr = {
       service             = "ecr.dkr"
@@ -154,11 +176,13 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
+      tags            = { Name = "kms-vpc-endpoint" }
     },
     codedeploy = {
       service             = "codedeploy"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
+      tags            = { Name = "codedeploy-vpc-endpoint" }
     },
     codedeploy_commands_secure = {
       service             = "codedeploy-commands-secure"
@@ -229,7 +253,7 @@ data "aws_iam_policy_document" "generic_endpoint_policy" {
 }
 
 resource "aws_security_group" "vpc_tls" {
-  name_prefix = "${local.name}-vpc_tls"
+  name_prefix = "${local.name}-corporateAdminBaseline"
   description = "Allow TLS inbound traffic"
   vpc_id      = module.vpc.vpc_id
 
